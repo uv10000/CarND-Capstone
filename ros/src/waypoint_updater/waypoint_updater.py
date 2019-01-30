@@ -38,9 +38,9 @@ class WaypointUpdater(object):
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
-        self.pose = PoseStamped()
+        self.pose =None # PoseStamped()
         self.base_waypoints = None 
-        self.base_waypoints_2d = None
+        self.waypoints_2d = None
         self.waypoint_tree= None #KDTree(2)
 
         #rospy.spin()
@@ -48,15 +48,26 @@ class WaypointUpdater(object):
 
     def loop(self):
         rate = rospy.Rate(50)
-        while not rospy.is_shutdown() and self.waypoint_tree:
-            closest_waypoint_idx = self.get_closest_waypoint_id()
-            self.publish_waypoints(closest_waypoint_idx)
-        rate.sleep()
+        while (not rospy.is_shutdown()): # and (self.waypoint_tree is not None):
+            if False and (self.pose is not None) and (self.base_waypoints is not None) and (self.waypoint_tree is not None):
+                closest_waypoint_idx = self.get_closest_waypoint_id()
+                self.publish_waypoints(closest_waypoint_idx)
+            elif (self.base_waypoints is not None):
+                self.final_waypoints_pub.publish(self.base_waypoints)
+
+            rate.sleep()
 
     def get_closest_waypoint_id(self):
+        #if not self.pose:
+        #    self.pose= PoseStamped()
         x=self.pose.pose.position.x
         y=self.pose.pose.position.y
+        #if not self.waypoint_tree:
+        #    self.waypoint_tree= KDTree()
+        #if self.waypoint_tree is not None):
         closest_idx=self.waypoint_tree.query([x,y],1)[1]
+        #print(closest_idx)
+        
 
         # Check if closest_idx is ahead of or behind the vehicle
         closest_coord = self.waypoints_2d[closest_idx]
@@ -71,16 +82,18 @@ class WaypointUpdater(object):
         val= np.dot(cl_vect-prev_vect,pos_vect-cl_vect) # positive when closest_idx is behind vehicle
         if val > 0:  # if indeed behind, pick the next waypoint instead
             closest_idx =(closest_idx +1 ) % len(self.waypoints_2d)
-
+        #else:
+        #    closest_idx =0
         return closest_idx
 
 
 
     def publish_waypoints(self,closest_idx):
+        #if self.waypoints is not None:
         lane= Lane()
         lane.header=self.base_waypoints.header
         lane.waypoints=self.base_waypoints.waypoints[closest_idx + LOOKAHEAD_WPS]
-        self.final_waypoints_pub.publish(lane   )
+        self.final_waypoints_pub.publish(lane)
 
     def pose_cb(self, msg):
         # TODO: Implement
