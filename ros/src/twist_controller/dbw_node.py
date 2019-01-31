@@ -78,9 +78,9 @@ class DBWNode(object):
             #                                                     <current linear velocity>,
             #                                                     <dbw status>,
             #                                                     <any other argument you need>)
-            throttle=25.0  # percent
+            throttle=0.1 # between 0 and 1 
             brake=0.0    #percent
-            steer=90  # deg steering wheel
+            steer= -2.0/15.0  # deg steering wheel
             #if self.dbw_enabled:
             self.publish(throttle, brake, steer)
             rate.sleep()
