@@ -57,6 +57,14 @@ class DBWNode(object):
         # self.controller = Controller(<Arguments you wish to provide>)
 
         # TODO: Subscribe to all the topics you need to
+        rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
+
+        self.current_velocity = None
+        self.desired_velocity = None
+        self.desired_angular_velocity = None
+        self.dbw_enabled = True # as we are in the simulator wher /vehicle/dbw_enable topic does seem to exist
 
         self.loop()
 
@@ -70,9 +78,25 @@ class DBWNode(object):
             #                                                     <current linear velocity>,
             #                                                     <dbw status>,
             #                                                     <any other argument you need>)
-            # if <dbw is enabled>:
-            #   self.publish(throttle, brake, steer)
+            throttle=25.0  # percent
+            brake=0.0    #percent
+            steer=90  # deg steering wheel
+            #if self.dbw_enabled:
+            self.publish(throttle, brake, steer)
             rate.sleep()
+
+    def current_velocity_cb(self, msg):
+        # TODO: Implement
+        self.current_velocity = msg.twist.linear.x
+
+    def twist_cmd_cb(self, msg):
+        # TODO: Implement
+        self.desired_velocity = msg.twist.linear.x
+        self.desired_angular_velocity = msg.twist.angular.z
+
+    def dbw_enabled_cb(self, msg):
+        # TODO: Implement
+        self.dbw_enabled = msg
 
     def publish(self, throttle, brake, steer):
         tcmd = ThrottleCmd()
