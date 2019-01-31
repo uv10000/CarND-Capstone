@@ -62,8 +62,11 @@ class DBWNode(object):
         rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
 
         self.current_velocity = None
+        self.current_yaw_rate = None
         self.desired_velocity = None
-        self.desired_angular_velocity = None
+        self.desired_yaw_rate = None
+        self.controller=Controller()
+
         self.dbw_enabled = True # as we are in the simulator wher /vehicle/dbw_enable topic does seem to exist
 
         self.loop()
@@ -71,28 +74,30 @@ class DBWNode(object):
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
         while not rospy.is_shutdown():
+ 
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
-            # throttle, brake, steering = self.controller.control(<proposed linear velocity>,
+            throttle, brake, steer = self.controller.control(self.current_velocity,self.current_yaw_rate,self.desired_velocity,self.desired_yaw_rate,self.dbw_enabled)
+            
+            #(<proposed linear velocity>,
             #                                                     <proposed angular velocity>,
             #                                                     <current linear velocity>,
             #                                                     <dbw status>,
             #                                                     <any other argument you need>)
-            throttle=0.1 # between 0 and 1 
-            brake=0.0    #percent
-            steer= -2.0/15.0  # deg steering wheel
-            #if self.dbw_enabled:
-            self.publish(throttle, brake, steer)
+            
+            if self.dbw_enabled:
+                self.publish(throttle, brake, steer)
             rate.sleep()
 
     def current_velocity_cb(self, msg):
         # TODO: Implement
         self.current_velocity = msg.twist.linear.x
+        self.current_yaw_rate = msg.twist.linear.z
 
     def twist_cmd_cb(self, msg):
         # TODO: Implement
         self.desired_velocity = msg.twist.linear.x
-        self.desired_angular_velocity = msg.twist.angular.z
+        self.desired_yaw_rate = msg.twist.angular.z
 
     def dbw_enabled_cb(self, msg):
         # TODO: Implement
