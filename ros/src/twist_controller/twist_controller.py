@@ -21,7 +21,7 @@ class Controller(object):
         max_steer_angle ):
         # TODO: Implement
 
-        self.throttle_controller = YawController(wheel_base,steer_ratio,0.1,max_lat_accel,max_steer_angle)      
+        self.yaw_controller = YawController(wheel_base,steer_ratio,0.1,max_lat_accel,max_steer_angle)      
 
 
         kp = 0.3
@@ -54,9 +54,32 @@ class Controller(object):
         current_velocity = self.vel_lpf.filt(current_velocity)
         #rospy.logwarn("current_yaw_rate: {0}".format(current_yaw_rate))
 
-        throttle=0.1 # between 0 and 1 
-        brake=0.0    #percent
-        steer= -2.0/15.0  # deg steering wheel ??? or whatever ...  
+        steer = self.yaw_controller.get_steering(desired_velocity,desired_yaw_rate, current_velocity)
+
+        vel_error = desired_velocity - current_velocity
+        self.last_vel= current_velocity
+
+        current_time = rospy.get_time()
+        sample_time= current_time - self.last_time
+        self.last_time = current_time
+
+        throttle = self.throttle_controller.step(vel_error,sample_time)
+        brake = 0
+
+        if desired_velocity == 0 and current_velocity < 0.1:
+            throttle=0
+            brake = 400
+        elif throttle < .1 and vel_error <0:
+            trottle = 0
+            decel = max(vel_error,self.decel_limit)
+            brake = abs(decel)*self.vehicle_mass*self.wheel_radius
+
+
+
+
+        #throttle=0.1 # between 0 and 1 
+        #brake=0.0    #percent
+        #steer= -2.0/15.0  # deg steering wheel ??? or whatever ...  
         # Return throttle, brake, steer
         #rospy.logwarn("current velocity: {0}".format(linear_vel:))
         return throttle, brake, steer
