@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+from scipy.spatial import KDTree
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -19,6 +20,8 @@ class TLDetector(object):
 
         self.pose = None
         self.waypoints = None
+        self.waypoints_2d = None
+        self.waypoint_tree= None #KDTree(2)
         self.camera_image = None
         self.lights = []
 
@@ -50,12 +53,25 @@ class TLDetector(object):
         self.state_count = 0
 
         rospy.spin()
+        #self.loop()
+
+        def loop(self):
+            rate = rospy.Rate(50)
+            while (not rospy.is_shutdown()): # and (self.waypoint_tree is not None):
+                if True and (self.pose is not None) and (self.base_waypoints is not None) and (self.waypoint_tree is not None):
+                    closest_waypoint_idx = self.get_closest_waypoint_id() ### this will have to be changed
+                    self.upcoming_red_light_pub(closest_waypoint_idx)
+            rate.sleep()
 
     def pose_cb(self, msg):
         self.pose = msg
 
     def waypoints_cb(self, waypoints):
         self.waypoints = waypoints
+        #self.base_waypoints = waypoints
+        if not self.waypoints_2d:
+            self.waypoints_2d = [[waypoint.pose.pose.position.x,waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+            self.waypoint_tree      =  KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -70,7 +86,9 @@ class TLDetector(object):
         """
         self.has_image = True
         self.camera_image = msg
-        light_wp, state = self.process_traffic_lights()
+        light_wp, state = self.process_traffic_lights()    ## cheat mode for the moment
+        #light_wp = 
+        #state= self.light
 
         '''
         Publish upcoming red lights at camera frequency.
@@ -101,7 +119,27 @@ class TLDetector(object):
 
         """
         #TODO implement
-        return 0
+        #return 0
+
+        x=pose.pose.position.x
+        y=pose.pose.position.y
+  
+        closest_idx=self.waypoint_tree.query([x,y],1)[1]
+
+        # Check if closest_idx is ahead of or behind the vehicle
+        closest_coord = self.waypoints_2d[closest_idx]
+        prev_coord = self.waypoints_2d[closest_idx -1]
+
+        # Equ for hyperplane through closest coores
+        cl_vect=np.array(closest_coord)
+        prev_vect= np.array(prev_coord)
+        pos_vect= np.array([x,y])
+
+        # the following acts like ceil() (modulo lenth of array ... because we have around course ?!)
+        val= np.dot(cl_vect-prev_vect,pos_vect-cl_vect) # positive when closest_idx is behind vehicle
+        if val > 0:  # if indeed behind, pick the next waypoint instead
+            closest_idx =(closest_idx +1 ) % len(self.waypoints_2d)
+        return closest_idx
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -120,7 +158,8 @@ class TLDetector(object):
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
         #Get classification
-        return self.light_classifier.get_classification(cv_image)
+        return self.light_classifier.get_classification(cv_image)  ### we may want to override this in "cheat mode" for the time being
+        #return self.light_classifier.get_classification(cv_image)
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its

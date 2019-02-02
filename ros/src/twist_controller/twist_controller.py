@@ -66,13 +66,13 @@ class Controller(object):
         throttle = self.throttle_controller.step(vel_error,sample_time)
         brake = 0
 
-        if desired_velocity == 0 and current_velocity < 0.1:
+        if desired_velocity == 0 and current_velocity < 0.1: # desired =0 but act_vel below minimum value
             throttle=0
             brake = 400
-        elif throttle < .1 and vel_error <0:
+        elif throttle < .1 and vel_error <0:  #vehicle too fast and hardly any throttle
             trottle = 0
             decel = max(vel_error,self.decel_limit)
-            brake = abs(decel)*self.vehicle_mass*self.wheel_radius
+            brake = abs(decel)*self.vehicle_mass*self.wheel_radius  # brake proportion to ecessive speed
 
 
 
