@@ -65,7 +65,19 @@ class DBWNode(object):
         self.current_yaw_rate = None
         self.desired_velocity = None
         self.desired_yaw_rate = None
-        self.controller=Controller()
+        self.controller=Controller(
+            vehicle_mass ,
+            fuel_capacity ,
+            brake_deadband ,
+            decel_limit ,
+            accel_limit,
+            wheel_radius ,
+            wheel_base ,
+            steer_ratio ,
+            max_lat_accel ,
+            max_steer_angle )
+        self.throttle = self.steer = self.brake = 0.0
+        
 
         self.dbw_enabled = True # as we are in the simulator wher /vehicle/dbw_enable topic does seem to exist
 
@@ -77,7 +89,14 @@ class DBWNode(object):
  
             # TODO: Get predicted throttle, brake, and steering using `twist_controller`
             # You should only publish the control commands if dbw is enabled
-            throttle, brake, steer = self.controller.control(self.current_velocity,self.current_yaw_rate,self.desired_velocity,self.desired_yaw_rate,self.dbw_enabled)
+            #if not None in (self.current_velocity, selv)
+            if not None in (self.current_velocity,self.current_yaw_rate,self.desired_velocity,self.desired_yaw_rate):
+                self.throttle, self.brake, self.steer = self.controller.control(
+                        self.current_velocity,
+                        self.current_yaw_rate,
+                        self.desired_velocity,
+                        self.desired_yaw_rate,
+                        self.dbw_enabled)
             
             #(<proposed linear velocity>,
             #                                                     <proposed angular velocity>,
@@ -86,7 +105,7 @@ class DBWNode(object):
             #                                                     <any other argument you need>)
             
             if self.dbw_enabled:
-                self.publish(throttle, brake, steer)
+                self.publish(self.throttle, self.brake, self.steer)
             rate.sleep()
 
     def current_velocity_cb(self, msg):
