@@ -25,6 +25,9 @@ class TLDetector(object):
         self.waypoint_tree= None #KDTree(2)
         self.camera_image = None
         self.lights = []
+        self.X_list=[]
+        self.Y_list=[]
+        self.count_samples=0
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -56,12 +59,8 @@ class TLDetector(object):
         rospy.spin()
         #self.loop()
 
-    def loop(self):   ## apparently a loop is not necessary as /traffic_waypoint is emitted on event (new video arriving)
+    def loop(self):   ## apparently a loop is not necessary as /traffic_waypoint is emitted on event (new image arriving)
         rate = rospy.Rate(50)
-        #while (not rospy.is_shutdown()): # and (self.waypoint_tree is not None):
-        #   if True and (self.pose is not None) and (self.waypoints is not None) and (self.waypoint_tree is not None):
-        #       closest_waypoint_idx = self.get_closest_waypoint_id() ### this will have to be changed
-        #       self.upcoming_red_light_pub(closest_waypoint_idx)
         rate.sleep()
 
     def pose_cb(self, msg):
@@ -116,8 +115,8 @@ class TLDetector(object):
         Returns:
             int: index of the closest waypoint in self.waypoints
 
-        """
-        #TODO implement
+  """
+  #TODO implement
         #return 0
 
         #x=pose.pose.position.x
@@ -144,9 +143,6 @@ class TLDetector(object):
         return closest_idx
 
     def get_light_state(self, light):
-
-        return light.state  ## this ist just for testing, "cheat mode"
-        ################# IGNORE ALL BELOW FOR THE TIME BEING
         """Determines the current color of the traffic light
 
         Args:
@@ -156,15 +152,41 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
+
         if(not self.has_image):
             self.prev_light_loc = None
             return False
 
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        
+        if False: # debugging 
+            height,width, channels= cv_image.shape
+            rospy.logwarn("height: {0}".format(height))
+            rospy.logwarn("width: {0}".format(width))
+            rospy.logwarn("channels: {0}".format(channels))
+
+        cheat_mode = True
+        if cheat_mode:
+            # create training data
+            
+            if True: # generate learning data X and Y when True
+                self.X_list.append(cv_image)
+                self.Y_list.append(light.state)
+                self.count_samples+= 1
+                if self.waypoints:
+                    if self.count_samples == len(self.waypoints.waypoints) -10: #10000:
+                        X=np.array(self.X_list)
+                        Y=np.array(self.Y_list)
+                        rospy.logwarn("X.shape(): {0}".format(X.shape))
+                        rospy.logwarn("Y.shape(): {0}".format(Y.shape))
+
+
+            return light.state  ## this ist just for testing, "cheat mode"
+            ################# IGNORE ALL BELOW FOR THE TIME BEING
+    
 
         #Get classification
-        return self.light_classifier.get_classification(cv_image)  ### we may want to override this in "cheat mode" for the time being
-        #return self.light_classifier.get_classification(cv_image)
+        return self.light_classifier.get_classification(cv_image)  ### we  override this in "cheat mode" for the time being
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
