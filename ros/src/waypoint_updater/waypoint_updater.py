@@ -25,6 +25,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+MAX_DECEL = 0.5
 
 
 class WaypointUpdater(object):
@@ -108,13 +109,30 @@ class WaypointUpdater(object):
         if no_need_to_stop:
             lane.waypoints = horizon_waypoints
         else:
-            lane.waypoints = horizon_waypoints
-            #lane.waypoints = self.decelerate_waypoints(horizon_waypoints,closest_idx)
+            #lane.waypoints = horizon_waypoints
+            lane.waypoints = self.decelerate_waypoints(horizon_waypoints,closest_idx)
         
         return lane
     
     def decelerate_waypoints(self, waypoints,closest_idx):
-        return []
+        # the waypoints start at actual postiion of the car to the horizon (plus LOOKAHEAD_WPS)
+        temp = []   ## create a new list of differently spaced waypoints (assumption new waypoint every 20ms)
+        for i,wp in enumerate(waypoints):
+
+            p=Waypoint()
+            p.pose=wp.pose
+
+            stop_idx = max(self.stopline_wp_idx-closest_idx-2,0)
+
+            distance = self.distance(waypoints,i,stop_idx) # sum of Euklidian distances between relevant waypoints
+            vel= math.sqrt(2*MAX_DECEL * distance)
+            if vel < 0.1:
+                vel=0.0
+            
+            p.twist.twist.linear.x = min(vel,wp.twist.twist.linear.x )
+            temp.append(p)
+
+        return temp
 
 
     def pose_cb(self, msg):
