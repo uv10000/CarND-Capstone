@@ -56,7 +56,7 @@ class TLDetector(object):
         rospy.spin()
         #self.loop()
 
-    def loop(self):   ## apparently a loop is not necessary as signal is emitted on event (new video)
+    def loop(self):   ## apparently a loop is not necessary as /traffic_waypoint is emitted on event (new video arriving)
         rate = rospy.Rate(50)
         #while (not rospy.is_shutdown()): # and (self.waypoint_tree is not None):
         #   if True and (self.pose is not None) and (self.waypoints is not None) and (self.waypoint_tree is not None):
@@ -146,6 +146,7 @@ class TLDetector(object):
     def get_light_state(self, light):
 
         return light.state  ## this ist just for testing, "cheat mode"
+        ################# IGNORE ALL BELOW FOR THE TIME BEING
         """Determines the current color of the traffic light
 
         Args:
@@ -176,23 +177,23 @@ class TLDetector(object):
         """
         #light = None
         closest_light=None  
-        line_wp_index =None 
+        line_wp_idx =None 
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
         if(self.pose):
             car_wp_idx = self.get_closest_waypoint_id(self.pose.pose.position.x,self.pose.pose.position.y)
 
-        #TODO find the closest visible traffic light (if one exists)
-        diff = len(self.waypoints.waypoints)
-        for i,light in enumerate(self.lights):
-            stop_line=stop_line_positions[i]
-            temp_wp_idx = self.get_closest_waypoint_id(stop_line[0],stop_line[1])
-            d = temp_wp_idx  -car_wp_idx
-            if d >=0 and d< diff:
-                diff  = d
-                closest_light = light 
-                line_wp_idx = temp_wp_idx
+            #TODO find the closest visible traffic light (if one exists)
+            diff = len(self.waypoints.waypoints)
+            for i,light in enumerate(self.lights):
+                stop_line=stop_line_positions[i]
+                temp_wp_idx = self.get_closest_waypoint_id(stop_line[0],stop_line[1])
+                d = temp_wp_idx - car_wp_idx
+                if d >=0 and d< diff:
+                    diff  = d
+                    closest_light = light 
+                    line_wp_idx = temp_wp_idx
 
         if closest_light: # if it exists
             state =self.get_light_state(closest_light)
