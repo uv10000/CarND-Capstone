@@ -25,7 +25,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
-MAX_DECEL = 0.5
+MAX_DECEL = 0.5  # max deceleration
 
 
 class WaypointUpdater(object):
@@ -56,22 +56,12 @@ class WaypointUpdater(object):
             if True and (self.pose is not None) and (self.base_waypoints is not None) and (self.waypoint_tree is not None):
                 closest_waypoint_idx = self.get_closest_waypoint_id()
                 self.publish_waypoints(closest_waypoint_idx)
-            #elif (self.base_waypoints is not None):
-            #    self.final_waypoints_pub.publish(self.base_waypoints)
-
             rate.sleep()
 
     def get_closest_waypoint_id(self):
-        #if not self.pose:
-        #    self.pose= PoseStamped()
         x=self.pose.pose.position.x
         y=self.pose.pose.position.y
-        #if not self.waypoint_tree:
-        #    self.waypoint_tree= KDTree()
-        #if self.waypoint_tree is not None):
         closest_idx=self.waypoint_tree.query([x,y],1)[1]
-        #print(closest_idx)
-        
 
         # Check if closest_idx is ahead of or behind the vehicle
         closest_coord = self.waypoints_2d[closest_idx]
@@ -86,17 +76,13 @@ class WaypointUpdater(object):
         val= np.dot(cl_vect-prev_vect,pos_vect-cl_vect) # positive when closest_idx is behind vehicle
         if val > 0:  # if indeed behind, pick the next waypoint instead
             closest_idx =(closest_idx +1 ) % len(self.waypoints_2d)
-        #else:
-        #    closest_idx =0
         return closest_idx
 
 
 
     def publish_waypoints(self,closest_idx):
-        #if self.waypoints is not None:
         lane = self.generate_lane()
         self.final_waypoints_pub.publish(lane)
-        #self.final_waypoints_pub.publish(self.base_waypoints)
 
     def generate_lane(self):
         closest_idx = self.get_closest_waypoint_id()
@@ -105,7 +91,11 @@ class WaypointUpdater(object):
         #lane.waypoints.header=self.base_waypoints.waypoints.header
         horizon_waypoints= self.base_waypoints.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
 
-        no_need_to_stop = (self.stopline_wp_idx ==-1) or (self.stopline_wp_idx >= closest_idx + LOOKAHEAD_WPS)
+        discriminant = (self.stopline_wp_idx -(closest_idx + LOOKAHEAD_WPS))
+        discriminant = ((discriminant + 10902/2) % 10902)-10902/2
+
+        #no_need_to_stop = (self.stopline_wp_idx ==-1) or (self.stopline_wp_idx >= closest_idx + LOOKAHEAD_WPS)
+        no_need_to_stop = (self.stopline_wp_idx ==-1) or (discriminant>=0) 
         if no_need_to_stop:
             lane.waypoints = horizon_waypoints
         else:
@@ -114,17 +104,17 @@ class WaypointUpdater(object):
         
         return lane
     
-    def decelerate_waypoints(self, waypoints,closest_idx):
+    def decelerate_waypoints(self, horizon_waypoints,closest_idx):
         # the waypoints start at actual postiion of the car to the horizon (plus LOOKAHEAD_WPS)
         temp = []   ## create a new list of differently spaced waypoints (assumption new waypoint every 20ms)
-        for i,wp in enumerate(waypoints):
+        for i,wp in enumerate(horizon_waypoints):
 
             p=Waypoint()
             p.pose=wp.pose
 
             stop_idx = max(self.stopline_wp_idx-closest_idx-2,0)
 
-            distance = self.distance(waypoints,i,stop_idx) # sum of Euklidian distances between relevant waypoints
+            distance = self.distance(horizon_waypoints,i,stop_idx) # sum of Euklidian distances between relevant waypoints
             vel= math.sqrt(2*MAX_DECEL * distance)
             if vel < 0.1:
                 vel=0.0
@@ -160,11 +150,11 @@ class WaypointUpdater(object):
     def set_waypoint_velocity(self, waypoints, waypoint, velocity):
         waypoints[waypoint].twist.twist.linear.x = velocity
 
-    def distance(self, waypoints, wp1, wp2):
+    def distance(self, horizon_waypoints, wp1, wp2):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
         for i in range(wp1, wp2+1):
-            dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
+            dist += dl(horizon_waypoints[wp1].pose.pose.position, horizon_waypoints[i].pose.pose.position)
             wp1 = i
         return dist
 
