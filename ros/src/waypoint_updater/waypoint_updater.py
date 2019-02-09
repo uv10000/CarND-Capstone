@@ -90,6 +90,8 @@ class WaypointUpdater(object):
         lane.header=self.base_waypoints.header
         #lane.waypoints.header=self.base_waypoints.waypoints.header
         horizon_waypoints= self.base_waypoints.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
+        additional_waypoints = self.base_waypoints.waypoints[0: LOOKAHEAD_WPS-len(horizon_waypoints)]
+        horizon_waypoints.extend(additional_waypoints)
 
         discriminant = (self.stopline_wp_idx -(closest_idx + LOOKAHEAD_WPS))
         discriminant = ((discriminant + 10902/2) % 10902)-10902/2
