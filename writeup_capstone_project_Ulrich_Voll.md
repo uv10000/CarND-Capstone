@@ -14,9 +14,9 @@ This is a single submission, simulator only. Stopping at traffic lights in the s
 
 Please refer to my github repo [https://github.com/uv10000/CarND-Capstone](https://github.com/uv10000/CarND-Capstone).
 
-The goal of this project according to the [rubric points](https://review.udacity.com/#!/rubrics/1969/view) is "The submitted code must work successfully to navigate Carla around the test track".
+is "The submitted code must work successfully to navigate Carla around the test track".
 
-This it does but I would have liked to acchieved more ... severe time constraints due to my full time job and my two lovely little kids.
+This just about satisfies the  [project rubric](https://review.udacity.com/#!/rubrics/1969/view) -- yet I would have liked to acchieved more ... severe time constraints due to my full time job and my two lovely little kids.
 
 Thank you for reviewing!
 
@@ -142,6 +142,10 @@ I did not manage to install the Cuda/Tensorflow environment on the VM without se
 
 Main file: waypoint_updater.py, class WaypointUpdater
 
+Remark 1: In my eyes the definition of a trajectory is a sequence of points in time and space (poses), time increasing obviously along the sequence. In the ROS-Framework provided by Udacity the term "trajectory" seems to describe a sequence of tuples consisting of points in space (poses) and velocities (twists). This is not exactly the same but without a formal proof this seems to be pretty much equvalent. 
+
+Remark 2: The name "final_waypoints" is somewhat misleading. Those waypoints are handed over to another "black-box" node, we think it is essentially containing a pure-pursuit controller, yielding twist-shaped commands. The latter are the input to the dbw-node, yielding throttle, brake and steering as discussed below.
+
 
 ### 1.1 \__init__(self)
 Added subscribers for /current_pose, /base_waypoints, /traffic_waypoint
@@ -152,22 +156,59 @@ Helper variables (uninitialized, None)
 
 Starting a loop, in order to acchieve a 50 Hz "sampling rate".
 
-### 1.2 loop(self)
+### 1.2 self.loop()
 
-Infinite while loop (ok until rospy.is_shutdown==True)
+"Main loop"
 
-Do nothing if helper variables are not yet initialized. 
+Infinite while loop (ok until rospy.is_shutdown==True), every 20 ms (50 Hz)
 
-### 1.2 get_closes_waypoint_id(self)
+Do nothing as long as helper variables are not yet initialized
 
-Determine id of closest waypoint ahead (similar to the ceil() command). 
+Get id of closest waypoint 
 
-Using a KD-tree for efficiency, finding the id of the closest waypoint, as suggested in walk-through. 
+      self.get_closest_waypoint_id()
+
+Compute and publish LOOKAHEAD_WPS=200 waypoints based on new closest waypoint
+
+    self.publish_waypoints(closest_waypoint_id)
+
+do nothing until 20ms are over
+
+
+### 1.2 self.get_closes_waypoint_id()
+
+Determine id of closest waypoint ahead of current pose, resembling the ceil() command 
+
+Using a KD-tree for efficiency, finding the id of the closest waypoint to current pose, as suggested in walk-through
 
 Consider current pose, and the vector connecting the closest waypoint and its predecessor in order to find out if the closest waypoint is ahead of or behind the vehicle using elementary geometry (scalar products ...). 
 
 If the closes waypoint it is indeed behind, takt the next waypoint. This resembles a ceil()-operator, rounding to the next largest discrete value. 
 
+
+### 1.3 self.publish_waypoints(closest_waypoint_id)
+
+Compute a "lane", a sequence of LOOKAHEAD_WPS=200 waypoints starting at closest_waypoint
+
+    self.generate_lane()
+
+Lane() is a datatype provided bp the ROS framework, sequence of waypoints, at least semantically. 
+
+Cut out a contiguous subseqence of LOOKAHEAD_WPS=200 waypoints from the global waypoints.
+
+We took into account modulus-considerations, but this was not sufficient to make the car continue at the end of the first lap. 
+
+Essentially check if the stopline of the next red light is at least LOOKAHEAD_WPS=200 waypoints ahead.
+
+If yes, jst return the aforementioned subsequence, called "horizon_waypoints" in the code.
+
+Otherwise compute and return a modified trajectory/lane using 
+
+    self.decelerate_waypoints(horizon_waypoints,closest_idx)
+
+### 1.4 self.decelerate_waypoints(horizon_waypoints,closest_idx)
+
+For all waypoints in the "horizon_waypoints" reduce the velocities of the "horizon_waypoints" according to a monotonically decreasing function of the distance to the horizon of the respective waypoint. Using sqrt as suggested in walkthrough. 
 
 
 
