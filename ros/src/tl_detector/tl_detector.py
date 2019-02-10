@@ -164,7 +164,7 @@ class TLDetector(object):
         if cheat_mode:
             # create training data
             
-            if True: # generate learning data X and Y when True
+            if False: # generate learning data X and Y when True # set to False in order to avoid memory error!
                 self.X_list.append(cv_image)
                 self.Y_list.append(light.state)
                 self.count_samples+= 1
