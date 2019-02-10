@@ -21,18 +21,17 @@ For the same reason I decided not to join a team, thereby giving away the option
 
 Thank you for reviewing!
 
-
 ---------------
 
 0.1 Overview
 
 0.2 Set-Up
 
-1 Code along the lines of the project walkthrough part 1 -> waypoints are published (Simulator) 
+1 My code similar to walkthrough part 1 -> waypoints are published (Simulator) 
 
-2 Code along the lines of the project walkthtrough part 2 -> vehicle follows waypoints (Simulator)
+2 My code similar to walkthrough part part 2 -> vehicle follows waypoints (Simulator)
 
-3 Code along the lines of the project walkthtrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
+3 My code similar to walkthrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
 
 4 Conclusion, open threads
 
@@ -44,6 +43,7 @@ Thank you for reviewing!
 [image1]: ./final-project-ros-graph-v2.png "Model Visualization"
 
 ---------------------
+---
 
 ## 0.1 Overview 
 
@@ -121,11 +121,11 @@ Deviating from the Readme.md, install requirements as follows
     cd CarND-Capstone
     python -m pip install -r requirements.txt
 
-We recomment to run rosdep. 
+I had to to run rosdep at some stage. 
 
 Please start the unity-simulator on the host machine as described in the Readme.md, do not forget to remove the checkmark "manual" and set the checkmark "camera". 
 
-I did not manage to install the Cuda/Tensorflow environment on the VM without severe side effects on ROS functionality. Fortunately I was able to roll back my VM.
+I did not manage to install the Cuda/Tensorflow environment on the VM without severe side effects on ROS functionality. Fortunately I was able to roll back my VM. My submission does not include a traffic sign detector but resorts to ground truth, available in the simulator only.
 
 
 
@@ -134,12 +134,13 @@ I did not manage to install the Cuda/Tensorflow environment on the VM without se
 
 
 ---
+---
 
 
 
 
 
-## 1 My code along the lines of the project walkthrough part 1 -> waypoints are published (Simulator) 
+## 1 My code similar to walkthrough part 1 -> waypoints are published (Simulator) 
 
 Main file: waypoint_updater.py, class WaypointUpdater, discussion below
 
@@ -149,7 +150,7 @@ Remark 2: The name "final_waypoints" is somewhat misleading. Those waypoints are
 
 Remark 3: I spent *far to much time* on the issue of the car stopping near the end of the first round. I made many additions inside my own code in order to correctly account for modulus-effects (due to the waypoints forming a closed loop). Onĺy very late I discovered the trivial fact that Python lists do not apply modulus operations automatically (as opposet to numpy arrays which  seem to do just this). I therefore actively padded the list of "final" waypoints sent towards the vehicle with the missing values. Now, in the simulator, I could see the previously missing waypoints leading onwards. Nevertheless the vehicle stopped in the same position near the end of the first round, ignoring the onward waypoints. I gave up on that - it almost seems as if the reason is inside the "black box" node "Waypoint Follower". 
 
-
+---
 ### 1.1 \__init__(self)
 Added subscribers for /current_pose, /base_waypoints, /traffic_waypoint
 
@@ -159,6 +160,7 @@ Helper variables (uninitialized, None)
 
 Starting a loop, in order to acchieve a 50 Hz "sampling rate".
 
+---
 ### 1.2 self.loop()
 
 "Main loop"
@@ -177,7 +179,7 @@ Compute and publish LOOKAHEAD_WPS=200 waypoints based on new closest waypoint
 
 do nothing until 20ms are over
 
-
+---
 ### 1.2 self.get_closest_waypoint_id()
 
 Determine id of closest waypoint ahead of current pose, resembling the ceil() command 
@@ -188,7 +190,7 @@ Consider current pose, and the vector connecting the closest waypoint and its pr
 
 If the closes waypoint it is indeed behind, takt the next waypoint. This resembles a ceil()-operator, rounding to the next largest discrete value. 
 
-
+---
 ### 1.3 self.publish_waypoints(closest_waypoint_id)
 
 Compute a "lane", a sequence of LOOKAHEAD_WPS=200 waypoints starting at closest_waypoint
@@ -209,18 +211,21 @@ Otherwise compute and return a modified trajectory/lane using
 
     self.decelerate_waypoints(horizon_waypoints,closest_idx)
 
+---
 ### 1.4 self.decelerate_waypoints(horizon_waypoints,closest_idx)
 
 For all waypoints in the "horizon_waypoints" reduce the velocities of the "horizon_waypoints" according to a monotonically decreasing function of the distance to the horizon of the respective waypoint. Using sqrt as suggested in walkthrough. 
 
+---
 ### 1.5 Further Functions
 
 Apart from the callback functions that are called upon incoming events, there are a few fairly self-explaing helper functions. Notably when the list of "base_waypoints" is first received an appropriate KD-tree helper variable is created in order to speed up finding closest waypoints later on.
 
 ----------------
+---
 
 
-## 2 My code along the lines of the project walkthtrough part 2 -> vehicle follows waypoints (Simulator)
+## 2 My code similar to walkthrough part 2 -> vehicle follows waypoints (Simulator)
 
 Main file: dbw_node.py, class DBWNode, discussion below
 Helper files: lowpass.py, pid.py, twist_controller.py, yaw_controller.py
@@ -229,6 +234,7 @@ Remark 4: Please refer to Remark 2 above. The DBWNode only contains part of the 
 
 Remark 5: In the real vehicle there will be a flag "dbw_enabled", this is never sent in the simulated vehicle where it effectively is stubbed to True by setting the corresponding helper variable to True, initially. In the real vehicle this is used to prevent the I-portion of PID controllers from winding up, during Drive by wire functionality may be disabled by the driver. 
 
+---
 ### 2.1 \__init__(self)
 Added subscribers for /current_velocity, /twist_cmd, /dbw_enabled
 
@@ -238,6 +244,7 @@ Helper variables (uninitialized, None), most of them for buffering the commands
 
 Again, starting a loop, in order to acchieve a 50 Hz "sampling rate"
 
+---
 ### 2.2 self.loop()
 
 "Main loop"
@@ -263,13 +270,14 @@ Publish the throttle, break and steer commands (using a helper-function "publish
 
 do nothing until 20ms are over
 
-
+---
 ### 2.3 Class Controller()
 
 In the file twist_controller.py resides the controller converting the actual values and the desired values into control command for throttle, steering and brake. 
 
 In order to accommodate the "dbw_enabled" flag we reset the throttle controller (with internal memory in its integral, anti-windup ...) and return 0.0 respectively for all three commands if "dbw_enabled" is False. 
 
+---
 ### 2.3.1 Longitudinal Control
 
 Note that there are two actuators, braking and throttle, but both are somewhat incomplete. Throttle can only lead to non-negative torques and braking can only lead to non-positive torques at the wheels. So we need to perform some arbitration between the two, see below.
@@ -293,6 +301,9 @@ c) DECELERATE. If throttle less than 10% and actual velocity exceeds desired vel
 
 Remark 6: In my eyes it there is no need to compute the torque required using a (however simple) physics modelling, since there is an arbitrary factor between velocity error and torqe involved anyhow. The arbitrary factor (of the P-controller) just happens to be 1.0 in the suggestion made during the project walk-through. Most numbers are equal to 42, up to a factor.
 
+
+
+---
 ### 2.3.1 Lateral Control
 
 Remember that this node contains only parts of the controls converting waypoints into command to the vehicles' actuators. 
@@ -310,6 +321,7 @@ This is a simple look-up-table style conversion of the desired yaw rate into a s
 
 Strictly speaking this mechanism is not 100% open loop as it depends on the actual (measured) velocity, but it does not consume the actual yaw rate, as I had originally expected.  
 
+---
 ### 2.4 Further Functions
 
 Apart from the aforementioned helper classes/functions there are the necessary callback-functions for the subscribed topics.
@@ -317,16 +329,16 @@ Apart from the aforementioned helper classes/functions there are the necessary c
 
 
 
-
+---
 -----------
-## 3 My code along the lines of the project walkthtrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
+## 3 My code similar to walkthrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
 
 Main file: tl_detector.py, class TLDetector()
 
 Remark 7:My code makes use the ground truth information about traffic light state in the /vehicle/traffic_lights topic which is present in the simulator only, instead of a CNN-detector. Still this is non-trivial code and makes the vehicle stop at red traffic lights in the simulator. 
 
-
-### 2.1 \__init__(self)
+---
+### 3.1 \__init__(self)
 
 Added subscribers for /current_pose, /base_waypoints, /vehicle/traffic_lights /image_color
 
@@ -334,15 +346,127 @@ Added publisher /traffic_waypoint
 
 Helper variables (uninitialized, None)
 
-Do *not* start a loop, instead use rospy.spin(). There is no main loop, methods will be trigered event-based, e.g. upon receiving a new video frame.
+In this node there are similar mechanisms in place as in the waypoint_updater (KD-tree, ....) but those two nodes can not share common variables as they run in different unix-processes. 
 
+Do *not* start a loop, instead use rospy.spin(). 
 
-### 2.2 self.loop()
+There is no main loop, functions/methods will be trigered event-based, e.g. upon receiving a new video frame.
+
+---
+### 3.2 self.loop()
 
 "Main loop"
 
-As mentioned above there is no need for a main loop here, as things are triggered event-based. This corresponding code-stub is obsolete.
+As mentioned above there is no need for a main loop in this node, as everything is triggered event-based. This corresponding code-stub is obsolete, I retained it with an explanatory comment. 
 
+---
+### 3.2 self.image_cb()
+
+As mentioned before in this node there is no main loop, everything is happening event-based. 
+
+This callback function, called each time a new image arrives, is explicitly stated as it performs, or at least triggers the bulk  of the work. 
+It publishes the index (Uint32) of the next red traffic light ahead in the topic /traffic_waypoint. If there is no red traffic light ahead it sends out "-1".
+
+Most work is delegated to the function self.process_traffic_lights() discussed below. It returns "light_wp" and "state" of the next traffic light ahead. 
+
+These values trigger stateful behaviour as follows.
+
+At each new event (video frame) do:
+
+- if: Traffic light colour changes.
+-> adapt internal state accordingly and reset a debounce-counter "self.state_count" to zero. 
+
+- elif: Debounce counter exceeds threshold.
+-> New signal is clearly confirmed. If new state = RED, remember "light wp" as "last wp", output "light_wp", otherwise "-1"   
+
+- else: No color change but not confirmed/debounced yet. -> Output "last_wp" for the time being.
+
+
+- increment the debounce-counter (in all cases)
+
+---
+### 3.3 self.process_traffic_lights()
+
+This function computes the index of the closest traffic light ahead and its state (RED, GREEN, etc).
+
+a) In order to identify the closest traffic light, it employs a static list of all stop_line_positions (a member variable "self.lights") and the index closest to the car using self.get_closest_waypoint_id(). 
+
+Then it iterates over all all traffic lights, for each do:
+
+- compute stop-line position
+
+- get index of closest waypoint to the respective stop-line position 
+
+- compude the difference between respective stop-light index and the car. 
+
+- if the distance is smaller than all previously found distances, select the respective stop
+
+b) Determine the state of the closest traffic light found using self.get_light_state()
+
+Finally return state and index of the closest light.
+
+If information is missing return "-1" and/or "TrafficLight.UNKNOWN".
+
+
+
+---
+### 3.4 self.get_closest_waypoint_id()
+
+Exactly the same as 1.2 above. 
+
+The respectiv ROS-nodes could share the code between them using a library but then the source code for the respective nodes would no longer be decoupled. There is a trade-off to be made between the benefits of code-reuse vs keeping things decoupled. I tend to prefer the latter over the sooner. 
+
+---
+### 3.5 self.get_light_state()
+
+A helper function for self.process_traffic_lights(light)
+
+Here is where the ground truth information is used that is not available in the real car. 
+
+Essentially *in the simulator* the class lights has an entry lights.state, in "cheat mode" this is returned. 
+
+See the code snippet below, final line: In normal mode we would have to call the (unfortunately non-existing) 
+
+    self.light_classifier.get_classification(cv_image)
+
+I also prepared some code for debugging and for collecting training data in appropriate numpy arrays. This is unfinished work. In particular I do not think this is the right place for collecting the y-values for training. 
+
+      cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        
+        if False: # debugging 
+            height,width, channels= cv_image.shape
+            rospy.logwarn("height: {0}".format(height))
+            rospy.logwarn("width: {0}".format(width))
+            rospy.logwarn("channels: {0}".format(channels))
+
+        cheat_mode = True
+        if cheat_mode:
+            # create training data
+            
+            if True: # generate learning data X and Y when True
+                self.X_list.append(cv_image)
+                self.Y_list.append(light.state)
+                self.count_samples+= 1
+                if self.waypoints:
+                    if self.count_samples == len(self.waypoints.waypoints) -10: #10000:
+                        X=np.array(self.X_list)
+                        Y=np.array(self.Y_list)
+                        rospy.logwarn("X.shape(): {0}".format(X.shape))
+                        rospy.logwarn("Y.shape(): {0}".format(Y.shape))
+
+
+            return light.state  ## this ist just for testing, "cheat mode"
+            ################# IGNORE ALL BELOW FOR THE TIME BEING
+    
+
+        #Get classification
+        return self.light_classifier.get_classification(cv_image)  ### we  override this in "cheat mode" for the time being
+
+
+
+
+
+---
 -----------------
 ## 4 Conclusion, open threads
 
