@@ -14,9 +14,10 @@ This is a single submission, simulator only. Stopping at traffic lights in the s
 
 Please refer to my github repo [https://github.com/uv10000/CarND-Capstone](https://github.com/uv10000/CarND-Capstone).
 
-is "The submitted code must work successfully to navigate Carla around the test track".
 
-This just about satisfies the  [project rubric](https://review.udacity.com/#!/rubrics/1969/view) -- yet I would have liked to acchieved more ... severe time constraints due to my full time job and my two lovely little kids.
+My solution is just enough to satisfy the  [project rubric](https://review.udacity.com/#!/rubrics/1969/view). Yet I would have liked to acchieved more, but there were severe time constraints due to my full time job and my two lovely little kids. 
+
+For the same reason I decided not to join a team, thereby giving away the option to test the code on the real Carla vehicle.
 
 Thank you for reviewing!
 
@@ -44,7 +45,7 @@ Thank you for reviewing!
 
 ---------------------
 
-#### 0.1 Overview 
+## 0.1 Overview 
 
 
 ![alt text][image1] 
@@ -100,7 +101,7 @@ I contributed code to the following node-stubs in the above ROS architecture/fra
 
 ---------
 
-#### 0.2 Set-Up  
+## 0.2 Set-Up  
 
 I used a descendant of the  Ubuntu 16.04  VirtualBox VM we were provided in class. It has ROS kinetic installed. 
 
@@ -138,13 +139,15 @@ I did not manage to install the Cuda/Tensorflow environment on the VM without se
 
 
 
-#### 1 Code along the lines of the project walkthrough part 1 -> waypoints are published (Simulator) 
+## 1 My code along the lines of the project walkthrough part 1 -> waypoints are published (Simulator) 
 
-Main file: waypoint_updater.py, class WaypointUpdater
+Main file: waypoint_updater.py, class WaypointUpdater, discussion below
 
-Remark 1: In my eyes the definition of a trajectory is a sequence of points in time and space (poses), time increasing obviously along the sequence. In the ROS-Framework provided by Udacity the term "trajectory" seems to describe a sequence of tuples consisting of points in space (poses) and velocities (twists). This is not exactly the same but without a formal proof this seems to be pretty much equvalent. 
+Remark 1: In my understanding, and strictly speaking, the definition of a trajectory is *a sequence of   tuples of points in time and space (poses)*, obviously with time-values increasing along the sequence. In the ROS-Framework provided by Udacity the term "trajectory" seems to describe a sequence of tuples consisting of points in space (poses) and velocities (twists). This is not exactly the same but -- without having a formal proof -- those two things seems to be pretty much equivalent. 
 
-Remark 2: The name "final_waypoints" is somewhat misleading. Those waypoints are handed over to another "black-box" node, we think it is essentially containing a pure-pursuit controller, yielding twist-shaped commands. The latter are the input to the dbw-node, yielding throttle, brake and steering as discussed below.
+Remark 2: The name "final_waypoints" is somewhat misleading. Those waypoints are handed over to another "black-box" node, called "Waypoint Follower", I think it essentially contains a pure-pursuit controller, yielding twist-shaped commands.  Those twist_commands are then input to the (our) "DBW Node", finally yielding throttle, brake and steering commands to the vehicle as discussed below. This is somewhat resembling a cascade-controller, with the PID like inner part implemented in (our) node "DBW Node".
+
+Remark 3: I spent *far to much time* on the issue of the car stopping near the end of the first round. I made many additions inside my own code in order to correctly account for modulus-effects (due to the waypoints forming a closed loop). Onĺy very late I discovered the trivial fact that Python lists do not apply modulus operations automatically (as opposet to numpy arrays which  seem to do just this). I therefore actively padded the list of "final" waypoints sent towards the vehicle with the missing values. Now, in the simulator, I could see the previously missing waypoints leading onwards. Nevertheless the vehicle stopped in the same position near the end of the first round, ignoring the onward waypoints. I gave up on that - it almost seems as if the reason is inside the "black box" node "Waypoint Follower". 
 
 
 ### 1.1 \__init__(self)
@@ -175,7 +178,7 @@ Compute and publish LOOKAHEAD_WPS=200 waypoints based on new closest waypoint
 do nothing until 20ms are over
 
 
-### 1.2 self.get_closes_waypoint_id()
+### 1.2 self.get_closest_waypoint_id()
 
 Determine id of closest waypoint ahead of current pose, resembling the ceil() command 
 
@@ -200,7 +203,7 @@ We took into account modulus-considerations, but this was not sufficient to make
 
 Essentially check if the stopline of the next red light is at least LOOKAHEAD_WPS=200 waypoints ahead.
 
-If yes, jst return the aforementioned subsequence, called "horizon_waypoints" in the code.
+If yes, just return the aforementioned subsequence, called "horizon_waypoints" in the code.
 
 Otherwise compute and return a modified trajectory/lane using 
 
@@ -210,191 +213,137 @@ Otherwise compute and return a modified trajectory/lane using
 
 For all waypoints in the "horizon_waypoints" reduce the velocities of the "horizon_waypoints" according to a monotonically decreasing function of the distance to the horizon of the respective waypoint. Using sqrt as suggested in walkthrough. 
 
+### 1.5 Further Functions
 
-
-#### 2 Code along the lines of the project walkthtrough part 2 -> vehicle follows waypoints (Simulator)
-
-#### 3 Code along the lines of the project walkthtrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
-
-#### 4 Conclusion, open threads
-
+Apart from the callback functions that are called upon incoming events, there are a few fairly self-explaing helper functions. Notably when the list of "base_waypoints" is first received an appropriate KD-tree helper variable is created in order to speed up finding closest waypoints later on.
 
 ----------------
 
-#### 1. Your code should compile.
 
- 
-Please refer to my githup repo [P8](https://github.com/uv10000/P8), cmake and make should work in the standard way.
+## 2 My code along the lines of the project walkthtrough part 2 -> vehicle follows waypoints (Simulator)
 
-I checked with a clean clone, seems to work fine on my local setup. 
+Main file: dbw_node.py, class DBWNode, discussion below
+Helper files: lowpass.py, pid.py, twist_controller.py, yaw_controller.py
 
+Remark 4: Please refer to Remark 2 above. The DBWNode only contains part of the controller, comparable to the inner part of a cascade controller. The so called "final waypoints" from the waypoint_updater node are not direct input to the DBW "Node". They are first converted by the "black box" "Waypoint Follower". It seems that this is implementing a pure pursuit controller in c++.
 
------
+Remark 5: In the real vehicle there will be a flag "dbw_enabled", this is never sent in the simulated vehicle where it effectively is stubbed to True by setting the corresponding helper variable to True, initially. In the real vehicle this is used to prevent the I-portion of PID controllers from winding up, during Drive by wire functionality may be disabled by the driver. 
 
-#### 2. The PID procedure follows what was taught in the lessons.
-See lines 36 ff of PID.cpp
-```
- p_error =  cte;
-    i_error +=  cte;
-    double antiwindup=100.0;  // another anti-windup for limiting I-Integral 
-    i_error= fmax(-antiwindup,i_error); i_error=fmin(antiwindup,i_error); 
-    // saturate to "antiwindup"
-    d_error = cte -prev_cte;
-    sum_of_squared_errors = cte*cte + sum_of_squared_errors*0.95; // moving average!
-    prev_cte=cte;
-```
-and line 186 of main.cpp
-```
- steer_value = -pid.p_error * pid.Kp  - pid.i_error * pid.Ki - pid.d_error * pid.Kd;
-```
+### 2.1 \__init__(self)
+Added subscribers for /current_velocity, /twist_cmd, /dbw_enabled
 
-Note that I included an anti-windup mechanism for the I error integral and a moving averaging mechanism to prevent the value of the mean squared errors from winding up. 
+Added publishers /vehicle/steering_cmd,  /vehicle/brake_cmd, /vehicle/trottle_cmd
 
----------------
+Helper variables (uninitialized, None), most of them for buffering the commands 
 
-#### 3. Describe the effect each of the P, I, D components had in your implementation.
+Again, starting a loop, in order to acchieve a 50 Hz "sampling rate"
 
-In theory the P part should be for following the road, the D part should prevent overshooting and damping if the P part is chosen aggressively (which may be necessary in order to stay away from curbs ...). And the I part is for stationary accuracy.
+### 2.2 self.loop()
 
-However in practice this does not tell the whole story because the overall system consists of the plant (vehicle with limitations, inertia, etc.) plus the controller. 
-In simple (linear, time invariant, no saturation or finite actuator velocities, etc.) cases and for simple controllers (P-controller) it is possible to find the right controller parameters algebraically using Laplace transforms. 
+"Main loop"
 
-Speaking from my personal experience, I find this (i.e. the role of classical linear control theory, to be honest) somewhat overrated in view of many practical applications that are neither linear nor time invariant. All those shiny Laplace transform methods are no longer (strictly) applicable as soon as the slightest non-linearity or time dependeny creeps in.  What is your opinion on this? 
+Infinite while loop (ok until rospy.is_shutdown==True), every 20 ms (50 Hz)
 
-I totally agree with you that parameter tuning by optimization like e.g. by using Twiddle is a far more broadly applicable method, which works well in practice.  
+Do nothing as long as helper variables are not yet initialized
 
-Btw. it is a pity that you removed the  Model Predictive Control module from the course.
-Which is - as far as I understand - a method for online optimisation of controller parameters.  
+Call 
 
----------------------------
+    throttle, brake, steer = 
+      controller.control(
+        current_velocity, 
+        current_yaw_rate, 
+        desired velocity, 
+        current_velocity, 
+        dbw_enabled
+      )
 
-#### 4 Describe how the final hyperparameters were chosen.
+Here "controller" is of type Controller() which is a wrapper class provided by Udacity, containing both longitudinal and lateral control. 
 
-Before  I will sketch my incomplete ideas and code fragments for an online version of Twiddle for autotuning below, here comes my "strategy" for manual tuning:
+Publish the throttle, break and steer commands (using a helper-function "publish(...)")
 
-a) Start with I and D parts set to zero
-
-b) Turn up the P value until the system gets instable.
-
-c) Compensate for instability by turning  up the D part, and/or reducing P. Return to b) and iterate
-
-d) Slowly turn up the I part to improve static accuracy, possibly return to b) and reiterate.  
-
-(Plus spend hours of twiddling around by hand in a less than systematic way.)
+do nothing until 20ms are over
 
 
-Here comes the idea for performing twiddle online, that is at-run-time:
+### 2.3 Class Controller()
 
-In an online setting we cannot restart the system at random during optimisatin, as we did in the quiz.
+In the file twist_controller.py resides the controller converting the actual values and the desired values into control command for throttle, steering and brake. 
 
-Idea: 
+In order to accommodate the "dbw_enabled" flag we reset the throttle controller (with internal memory in its integral, anti-windup ...) and return 0.0 respectively for all three commands if "dbw_enabled" is False. 
 
-- State machine with 8 states arranged in a circle. 
+### 2.3.1 Longitudinal Control
 
-- Move from state to state in cylic order.
+Note that there are two actuators, braking and throttle, but both are somewhat incomplete. Throttle can only lead to non-negative torques and braking can only lead to non-positive torques at the wheels. So we need to perform some arbitration between the two, see below.
 
-- In each state certain parameter changes are performed "in the twiddle spirit", details see below. 
+The actual velocity is first filtered by a standard PT1 filter (tau=0.5, t_samp=0.02) provided by Udacity. 
 
-- Each time we leave a state the moving-average mean squared error counter is reset. 
+Udacity also provided a template for a PID controller, which is used for longitudinal control only. Its main input is the error "desired velocity" minus "actual velocity", and it provides a throttle value, that may be modified further down in the code when taking care of the braking value. 
 
-- Inbetween states wait for several (e.g. 500) iterations of the simulator for the respective parameter changes to take effect, i.e. until the  moving-average mean squared error is close to it's steady state value. 
+The PID controller accepts adaptive sampling times, to accomadate for jitter in the 50 Hz messages' arrival. We gratefully adopted the parameters suggested in the project walk-trough. 
 
-- During one round in the circle we collect enough information to perform (discrete) partial derivatives of the cost function, evaluated at the original set of parameter.
+After a (preliminary) trottle value has been determined, a suitable brake value is derived from it as follows. The throttle value may also get adapted in the process:
 
-- In the final state of the cycle the parameters are updated according to twiddle. 
+a) Unless otherwise specified, brake=0.0 and throttle is left untouched, as it came from the PID controller.
 
-Remark: Twiddle is a generalization of gradient descent, with variable adaptive step size, isn't it? 
+b) HOLD. If desired velocity is zero and actual velocity is less than the minimum value 0.1 (this effectively means actual velocity is also zero, since negative velocities should never arise), throttle is set to 0.0 and brake is set to a value to hold the car (400 Nm, as suggested in the walk-trough). This is to compensate the thrust by the automatic transmission when idling at zero throttle.  
 
-See the following (unfinished) code snippet for further details: 
+c) DECELERATE. If throttle less than 10% and actual velocity exceeds desired velocity engage the brake as follows: 
+- set trottle to 0.0
+- determine a desired deceleration monotonically increasing in the velocity error but saturated by "decel_limit". A P-controller with saturation, effectively. 
+- set the brake torque to a value corresponding to, i.e. proportional to this deceleration. 
 
-```
-          // this is placed in the main loop i.e. in the body of h.onMessage
-          counter=(counter+1)%500;  // wait 500 steps before moving to the next state
-          if (counter==0) {  // move to the next state
-            double err = pid.TotalError();  // should have converged during 500 steps
-            std::cout << "TotalError: " << err  << std::flush << std::endl;
-            while (dp[0]+dp[1]+dp[2] >0.00){
-              if(myindex ==0) {  // state-machine with 8 states 
-                old_err=err; //remember error at (p1,p2,p3)
-                p[0] = p[0] + dp[0]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==1) {
-                err_plus[0]=err;//compute error at (p1+dp1,p2,p3)
-                p[0] = p[0] - dp[0]; // go back
-                p[1] = p[1] + dp[1]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==2) {
-                err_plus[1]=err; //compute error at (p1,p2+dp2,p3)
-                p[1] = p[1] - dp[1]; // go back
-                p[2] = p[2] + dp[2]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==3) {
-                err_plus[2]=err; //compute error at (p1,p2,p3+dp3)
-                p[2] = p[2] - dp[2]; // go back
-                p[0] = p[0] - dp[0]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==4) {
-                err_minus[0]=err; //compute error at (p1-dp1,p2,p3)
-                p[0] = p[0] + dp[0]; // go back
-                p[1] = p[1] - dp[1]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==5) {
-                err_minus[1]=err; //compute error at (p1,p2-dp2,p3)
-                p[1] = p[1] + dp[1]; // go back
-                p[2] = p[2] - dp[2]; // prepare for next step
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==6) {
-                err_minus[2]=err;  //compute error at (p1,p2,p3-dp3)
-                p[2] = p[2] + dp[2]; // go back
-                myindex = (myindex +1)%8; // jump to the next state after 500 steps
-              }
-              else if(myindex ==7) {
-                // adapt (p1,p2,p3) and (dp1,dp2,dp3) accordingly
-                // three cases:
-                // a) right value smaller than middle value -> increase pi, increase dpi
-                // b) left value smaller than middle value -> decrease pi, increase dpi
-                // c) both values larger than middle value -> keep pi, decrease dpi
-                for(int i=0;i<3;i++){
-                  if(err_plus[i] < old_err*0.99){
-                    p[i]+=dp[i]; dp[i]*=1.1;best_err =err_plus[i];
-                  }
-                  else if(err_minus[i] < old_err*0.99){
-                    p[i]-=dp[i]; dp[i]*=1.1; best_err =err_minus[i];
-                  }
-                  else{
-                    dp[i]*=0.95;
-                  }
-                  pid.Kp=p[0];pid.Ki=p[1];pid.Kd=p[2];
-                }
-                myindex = (myindex +1)%8;  // jump to the next state after 500 steps
-              }  
-            }
-            pid.sum_of_squared_errors =0.0; //start afresh, reset error counter
-          }
-```
+Remark 6: In my eyes it there is no need to compute the torque required using a (however simple) physics modelling, since there is an arbitrary factor between velocity error and torqe involved anyhow. The arbitrary factor (of the P-controller) just happens to be 1.0 in the suggestion made during the project walk-through. Most numbers are equal to 42, up to a factor.
 
-------------------
-#### 5 The vehicle must successfully drive a lap around the track.
+### 2.3.1 Lateral Control
+
+Remember that this node contains only parts of the controls converting waypoints into command to the vehicles' actuators. 
+
+For lateral control we are given a desired yaw-rate. 
+
+Gratefully following Udacity's suggestion I used their yaw-controller. 
+
+Input is actual velocity and desired yaw rate, but (surprisingl) not the actual yaw rate. 
+
+When looking at the code it seems the Udacity yaw controller is open-loop, or "feed-forward", w.r.t. lateral control  in the following sense:
+Given actual velocity and desired yaw rate, solve a simple kinematic bicycle model for the steering angle. 
+
+This is a simple look-up-table style conversion of the desired yaw rate into a steering angle, depending on vehicle speed and a couple of vehicle parameters.
+
+Strictly speaking this mechanism is not 100% open loop as it depends on the actual (measured) velocity, but it does not consume the actual yaw rate, as I had originally expected.  
+
+### 2.4 Further Functions
+
+Apart from the aforementioned helper classes/functions there are the necessary callback-functions for the subscribed topics.
 
 
-It does, but the driving style is rather jerky. See above.
-
-I found it hard to find a set of parameters that simultaneously leads to a "smooth" driving style while staying close to the middle of the road, in particular away from the curbs. 
 
 
-------------------
-#### 6 Further improvements.
 
-- Make the online optimisation (Twiddle) work. I have run out of time but I am confident that the above idea could work out. 
+-----------
+## 3 My code along the lines of the project walkthtrough part 3 -> vehicle stops correctly at traffic lights (Simulator, ground truth only) 
 
-- alternatively find a way for offline optimization (eg recording an interesting part of the track). I expect this to be a lot of fiddly work though.
+Main file: tl_detector.py, class TLDetector()
 
-- Introduce an element of "looking ahead" of some kind, e.g. by using the CNN from the "Behavioural Cloning" project. Or just by providing an "unfair and artificial ad-hoc-hint" derived from our knowledge of the track, justified by the fact that a human driver will be able to look ahead.
+Remark 7:My code makes use the ground truth information about traffic light state in the /vehicle/traffic_lights topic which is present in the simulator only, instead of a CNN-detector. Still this is non-trivial code and makes the vehicle stop at red traffic lights in the simulator. 
 
-- Model Predictive Control ... 
+
+### 2.1 \__init__(self)
+
+Added subscribers for /current_pose, /base_waypoints, /vehicle/traffic_lights /image_color
+
+Added publisher /traffic_waypoint
+
+Helper variables (uninitialized, None)
+
+Do *not* start a loop, instead use rospy.spin(). There is no main loop, methods will be trigered event-based, e.g. upon receiving a new video frame.
+
+
+### 2.2 self.loop()
+
+"Main loop"
+
+As mentioned above there is no need for a main loop here, as things are triggered event-based. This corresponding code-stub is obsolete.
+
+-----------------
+## 4 Conclusion, open threads
+
+
