@@ -9,6 +9,8 @@
 
 Notes to the reviewer: 
 
+CAVEAT: The submitted code runs all right on my VM with the simulator running on the host. However terrible latency problems when attempting to run this on the Udacity workspace. Hope that you are able to run it on your machine!
+
 This is a single submission, simulator only. Stopping at traffic lights in the simulator using ground truth information, no detector/classifier, can go on for a large number of successive rounds in the simulator.
 
 
