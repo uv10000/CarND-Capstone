@@ -59,7 +59,7 @@ class TLDetector(object):
         rospy.spin()
         #self.loop()
 
-    def loop(self):   ## apparently a loop is not necessary as /traffic_waypoint is emitted on event (new image arriving)
+    def loop(self):   ## no loop is needed as /traffic_waypoint is emitted on event (new image arriving)
         rate = rospy.Rate(50)
         rate.sleep()
 
@@ -115,13 +115,8 @@ class TLDetector(object):
         Returns:
             int: index of the closest waypoint in self.waypoints
 
-  """
-  #TODO implement
-        #return 0
+         """
 
-        #x=pose.pose.position.x
-        #y=pose.pose.position.y
-  
         if self.waypoint_tree:
             closest_idx=self.waypoint_tree.query([x,y],1)[1]
         else: 
@@ -207,11 +202,14 @@ class TLDetector(object):
             car_wp_idx = self.get_closest_waypoint_id(self.pose.pose.position.x,self.pose.pose.position.y)
 
             #TODO find the closest visible traffic light (if one exists)
-            diff = len(self.waypoints.waypoints)
+            lenght_of_track = len(self.waypoints.waypoints)
+            diff = lenght_of_track/2
+
+
             for i,light in enumerate(self.lights):
                 stop_line=stop_line_positions[i]
                 temp_wp_idx = self.get_closest_waypoint_id(stop_line[0],stop_line[1])
-                d = temp_wp_idx - car_wp_idx
+                d = (temp_wp_idx - car_wp_idx + lenght_of_track/2)%lenght_of_track -lenght_of_track/2 #respect "sign" in modulus
                 if d >=0 and d< diff:
                     diff  = d
                     closest_light = light 

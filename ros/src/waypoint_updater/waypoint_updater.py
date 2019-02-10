@@ -38,14 +38,14 @@ class WaypointUpdater(object):
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
 
-        self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
+        self.final_waypoints_pub = rospy.Publisher('/final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
-        self.pose =None # PoseStamped()
-        self.stopline_wp_idx = -1  # new
+        self.pose =None 
+        self.stopline_wp_idx = -1 
         self.base_waypoints = None 
         self.waypoints_2d = None
-        self.waypoint_tree= None #KDTree(2)
+        self.waypoint_tree= None 
 
         #rospy.spin()
         self.loop()
@@ -90,7 +90,7 @@ class WaypointUpdater(object):
         lane.header=self.base_waypoints.header
         #lane.waypoints.header=self.base_waypoints.waypoints.header
         horizon_waypoints= self.base_waypoints.waypoints[closest_idx:closest_idx + LOOKAHEAD_WPS]
-        additional_waypoints = self.base_waypoints.waypoints[0: LOOKAHEAD_WPS-len(horizon_waypoints)]
+        additional_waypoints = self.base_waypoints.waypoints[0: LOOKAHEAD_WPS-len(horizon_waypoints)]  # fill up the list respecting modulo
         horizon_waypoints.extend(additional_waypoints)
 
         discriminant = (self.stopline_wp_idx -(closest_idx + LOOKAHEAD_WPS))
