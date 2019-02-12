@@ -24,7 +24,7 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
 MAX_DECEL = 0.5  # max deceleration
 
 
@@ -94,7 +94,8 @@ class WaypointUpdater(object):
         horizon_waypoints.extend(additional_waypoints)
 
         discriminant = (self.stopline_wp_idx -(closest_idx + LOOKAHEAD_WPS))
-        discriminant = ((discriminant + 10902/2) % 10902)-10902/2
+        no_of_wpts= len(self.base_waypoints.waypoints)
+        discriminant = ((discriminant + no_of_wpts/2) % no_of_wpts)-no_of_wpts/2
 
         #no_need_to_stop = (self.stopline_wp_idx ==-1) or (self.stopline_wp_idx >= closest_idx + LOOKAHEAD_WPS)
         no_need_to_stop = (self.stopline_wp_idx ==-1) or (discriminant>=0) 
